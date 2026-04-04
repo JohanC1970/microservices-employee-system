@@ -1,0 +1,49 @@
+server:
+  port: 8085
+
+jwt:
+  secret: ${JWT_SECRET}
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        # Auth service — público, sin filtro JWT
+        - id: auth-service
+          uri: http://auth-service:8082
+          predicates:
+            - Path=/auth/**
+
+        # Empleados
+        - id: empleados-service
+          uri: http://empleados-service:8080
+          predicates:
+            - Path=/empleados/**
+          filters:
+            - name: JwtAuthFilter
+
+        # Departamentos
+        - id: departamentos-service
+          uri: http://departamentos-service:8081
+          predicates:
+            - Path=/departamentos/**
+          filters:
+            - name: JwtAuthFilter
+
+        # Perfiles
+        - id: perfiles-service
+          uri: http://perfiles-service:8083
+          predicates:
+            - Path=/perfiles/**
+          filters:
+            - name: JwtAuthFilter
+
+        # Notificaciones
+        - id: notificaciones-service
+          uri: http://notificaciones-service:8084
+          predicates:
+            - Path=/notificaciones/**
+          filters:
+            - name: JwtAuthFilter

@@ -1,0 +1,92 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build both Maven projects
+    cmds:
+      - cd empleados && mvn clean package -DskipTests
+      - cd departamentos && mvn clean package -DskipTests
+
+  build-image:
+    desc: Build Docker images
+    cmds:
+      - docker-compose build
+
+  up:
+    desc: Start all services
+    cmds:
+      - docker-compose up -d
+      - echo ""
+      - echo "=============================================="
+      - echo "   Servicios iniciados correctamente!"
+      - echo "=============================================="
+      - echo ""
+      - echo "   Swagger UI - Empleados:"
+      - echo "   http://localhost:8080/swagger-ui.html"
+      - echo ""
+      - echo "   Swagger UI - Departamentos:"
+      - echo "   http://localhost:8081/swagger-ui.html"
+      - echo ""
+      - echo "   API Raw - Empleados:    http://localhost:8080"
+      - echo "   API Raw - Departamentos: http://localhost:8081"
+      - echo ""
+      - echo "   Para ver logs: task logs"
+      - echo "   Para ver estado: task status"
+      - echo "=============================================="
+      - echo ""
+
+  down:
+    desc: Stop all services
+    cmds:
+      - docker-compose down
+
+  logs:
+    desc: View logs from all services
+    cmds:
+      - docker-compose logs -f
+
+  logs-empelados:
+    desc: View logs from empleados service
+    cmds:
+      - docker-compose logs -f empleados-service
+
+  logs-departamentos:
+    desc: View logs from departamentos service
+    cmds:
+      - docker-compose logs -f departamentos-service
+
+  ps:
+    desc: Show running containers
+    cmds:
+      - docker-compose ps
+
+  clean:
+    desc: Stop services and remove volumes
+    cmds:
+      - docker-compose down -v
+
+  clean-builds:
+    desc: Clean Maven build artifacts
+    cmds:
+      - cd empleados && mvn clean
+      - cd departamentos && mvn clean
+
+  swagger-empelados:
+    desc: Show Swagger URL for empleados
+    cmds:
+      - 'echo "Empleados Swagger: http://localhost:8080/swagger-ui.html"'
+
+  swagger-departamentos:
+    desc: Show Swagger URL for departamentos
+    cmds:
+      - 'echo "Departamentos Swagger: http://localhost:8081/swagger-ui.html"'
+
+  status:
+    desc: Show services status and URLs
+    cmds:
+      - 'echo "=== Reto 2 - Microservices Status ==="'
+      - 'echo "Empleados API: http://localhost:8080"'
+      - 'echo "Empleados Swagger: http://localhost:8080/swagger-ui.html"'
+      - 'echo "Departamentos API: http://localhost:8081"'
+      - 'echo "Departamentos Swagger: http://localhost:8081/swagger-ui.html"'
+      - docker-compose ps

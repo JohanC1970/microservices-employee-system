@@ -1,0 +1,306 @@
+version: '3.8'
+
+services:
+
+  # ──────────────────────────────────────────────
+  # MESSAGE BROKER
+  # ──────────────────────────────────────────────
+  message-broker:
+    image: rabbitmq:3-management
+    container_name: message-broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # AUTH SERVICE (nuevo)
+  # ──────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database-auth:5432/auth_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
+      - JWT_RECOVERY_EXPIRATION_MS=${JWT_RECOVERY_EXPIRATION_MS}
+    depends_on:
+      database-auth:
+        condition: service_healthy
+      message-broker:
+        condition: service_healthy
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # API GATEWAY (nuevo)
+  # ──────────────────────────────────────────────
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8085:8085"
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - auth-service
+      - empleados-service
+      - departamentos-service
+      - perfiles-service
+      - notificaciones-service
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # SERVICIO DE DEPARTAMENTOS
+  # ──────────────────────────────────────────────
+  departamentos-service:
+    build:
+      context: ./departamentos
+      dockerfile: Dockerfile
+    container_name: departamentos-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database-departamentos:5432/departamentos_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      database-departamentos:
+        condition: service_healthy
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # SERVICIO DE EMPLEADOS
+  # ──────────────────────────────────────────────
+  empleados-service:
+    build:
+      context: ./empleados
+      dockerfile: Dockerfile
+    container_name: empleados-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database-empleados:5432/empleados_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - DEPARTAMENTOS_SERVICE_URL=http://departamentos-service:8081
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    depends_on:
+      database-empleados:
+        condition: service_healthy
+      departamentos-service:
+        condition: service_started
+      message-broker:
+        condition: service_healthy
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # SERVICIO DE NOTIFICACIONES
+  # ──────────────────────────────────────────────
+  notificaciones-service:
+    build:
+      context: ./notificaciones
+      dockerfile: Dockerfile
+    container_name: notificaciones-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database-notificaciones:5432/notificaciones_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    depends_on:
+      database-notificaciones:
+        condition: service_healthy
+      message-broker:
+        condition: service_healthy
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # SERVICIO DE PERFILES
+  # ──────────────────────────────────────────────
+  perfiles-service:
+    build:
+      context: ./perfiles
+      dockerfile: Dockerfile
+    container_name: perfiles-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database-perfiles:5432/perfiles_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    depends_on:
+      database-perfiles:
+        condition: service_healthy
+      message-broker:
+        condition: service_healthy
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
+  # BASES DE DATOS
+  # ──────────────────────────────────────────────
+  database-auth:
+    image: postgres:15-alpine
+    container_name: database-auth
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5437:5432"
+    volumes:
+      - vol-auth:/var/lib/postgresql/data
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  database-empleados:
+    image: postgres:15-alpine
+    container_name: database-empleados
+    environment:
+      - POSTGRES_DB=empleados_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - vol-empleados:/var/lib/postgresql/data
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  database-departamentos:
+    image: postgres:15-alpine
+    container_name: database-departamentos
+    environment:
+      - POSTGRES_DB=departamentos_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - vol-departamentos:/var/lib/postgresql/data
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  database-notificaciones:
+    image: postgres:15-alpine
+    container_name: database-notificaciones
+    environment:
+      - POSTGRES_DB=notificaciones_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - vol-notificaciones:/var/lib/postgresql/data
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  database-perfiles:
+    image: postgres:15-alpine
+    container_name: database-perfiles
+    environment:
+      - POSTGRES_DB=perfiles_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - vol-perfiles:/var/lib/postgresql/data
+    networks:
+      - red-microservicios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+# ──────────────────────────────────────────────
+# REDES
+# ──────────────────────────────────────────────
+networks:
+  red-microservicios:
+    driver: bridge
+
+# ──────────────────────────────────────────────
+# VOLÚMENES
+# ──────────────────────────────────────────────
+volumes:
+  vol-auth:
+    driver: local
+  vol-empleados:
+    driver: local
+  vol-departamentos:
+    driver: local
+  vol-notificaciones:
+    driver: local
+  vol-perfiles:
+    driver: local
