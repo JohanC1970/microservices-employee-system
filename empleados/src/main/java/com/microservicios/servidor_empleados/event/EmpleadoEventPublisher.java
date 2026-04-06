@@ -30,6 +30,7 @@ public class EmpleadoEventPublisher {
             evento.put("departamentoId",empleado.getDepartamentoId());
             evento.put("fechaIngreso",  empleado.getFechaIngreso() != null
                     ? empleado.getFechaIngreso().toString() : null);
+            evento.put("tipo", "CREADO");
 
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.EXCHANGE,
@@ -49,6 +50,7 @@ public class EmpleadoEventPublisher {
             evento.put("id",     empleado.getId());
             evento.put("nombre", empleado.getNombre());
             evento.put("email",  empleado.getEmail());
+            evento.put("tipo",   "ELIMINADO");
 
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.EXCHANGE,

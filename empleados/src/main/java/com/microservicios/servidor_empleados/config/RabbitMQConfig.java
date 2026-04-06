@@ -45,11 +45,17 @@ public class RabbitMQConfig {
                 .to(empleadosExchange()).with(ROUTING_ELIMINADO);
     }
 
-    // perfiles solo escucha empleado.creado
+    // perfiles escucha empleado.creado  Y  empleado.eliminado
     @Bean
     public Binding bindPerfilesCreado() {
         return BindingBuilder.bind(perfilesQueue())
                 .to(empleadosExchange()).with(ROUTING_CREADO);
+    }
+
+    @Bean
+    public Binding bindPerfilesEliminado() {
+        return BindingBuilder.bind(perfilesQueue())
+                .to(empleadosExchange()).with(ROUTING_ELIMINADO);
     }
 
     /* ── Converter JSON ────────────────────────────────────── */

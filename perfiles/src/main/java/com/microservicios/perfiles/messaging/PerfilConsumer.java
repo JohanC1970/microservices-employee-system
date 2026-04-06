@@ -20,10 +20,18 @@ public class PerfilConsumer {
     }
 
     @RabbitListener(queues = "perfiles.queue")
-    public void onEmpleadoCreado(Map<String, Object> evento) {
+    public void onEmpleadoEvento(Map<String, Object> evento) {
         String empleadoId = (String) evento.get("id");
-        log.info("[CONSUMER] Evento empleado.creado recibido en perfiles para id={}", empleadoId);
-        perfilService.crearDesdeEvento(evento);
-        log.info("[PERFIL] Perfil por defecto creado/verificado para empleadoId={}", empleadoId);
+        String tipo = (String) evento.get("tipo");
+
+        if ("ELIMINADO".equals(tipo)) {
+            log.info("[CONSUMER] Evento empleado.eliminado recibido en perfiles para id={}", empleadoId);
+            perfilService.eliminarPorEmpleadoId(empleadoId);
+            log.info("[PERFIL] Perfil eliminado para empleadoId={}", empleadoId);
+        } else {
+            log.info("[CONSUMER] Evento empleado.creado recibido en perfiles para id={}", empleadoId);
+            perfilService.crearDesdeEvento(evento);
+            log.info("[PERFIL] Perfil por defecto creado/verificado para empleadoId={}", empleadoId);
+        }
     }
 }

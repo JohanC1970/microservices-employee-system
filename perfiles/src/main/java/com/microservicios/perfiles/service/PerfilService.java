@@ -47,6 +47,10 @@ public class PerfilService {
         return repository.findAll();
     }
 
+    public void eliminarPorEmpleadoId(String empleadoId) {
+        repository.findByEmpleadoId(empleadoId).ifPresent(repository::delete);
+    }
+
     public Perfil actualizar(String empleadoId, Perfil datosActualizados) {
         Perfil perfil = obtenerPorEmpleado(empleadoId);
 
