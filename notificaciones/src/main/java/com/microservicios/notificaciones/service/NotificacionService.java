@@ -33,17 +33,15 @@ public class NotificacionService {
     }
 
     public Notificacion registrarEstablecimientoPassword(String email, String nombre, String token) {
-        String mensaje = "Hola " + nombre + ", tu cuenta ha sido creada. "
-                + "Usa el siguiente token para establecer tu contraseña: " + token;
-        log.info("[NOTIFICACIÓN] Tipo: ESTABLECER_PASSWORD | Para: {}", email);
-        return guardar("ESTABLECER_PASSWORD", email, mensaje, null);
+        String mensaje = "Para establecer o recuperar su contraseña, utilice el siguiente token: " + token;
+        log.info("[NOTIFICACIÓN] Tipo: SEGURIDAD | Para: {} | Mensaje: \"Para establecer o recuperar su contraseña, utilice el siguiente token: {}\"", email, token);
+        return guardar("SEGURIDAD", email, mensaje, null);
     }
 
     public Notificacion registrarRecuperacionPassword(String email, String token) {
-        String mensaje = "Solicitaste recuperar tu contraseña. "
-                + "Usa el siguiente token para restablecerla: " + token;
-        log.info("[NOTIFICACIÓN] Tipo: RECUPERACION_PASSWORD | Para: {}", email);
-        return guardar("RECUPERACION_PASSWORD", email, mensaje, null);
+        String mensaje = "Para establecer o recuperar su contraseña, utilice el siguiente token: " + token;
+        log.info("[NOTIFICACIÓN] Tipo: SEGURIDAD | Para: {} | Mensaje: \"Para establecer o recuperar su contraseña, utilice el siguiente token: {}\"", email, token);
+        return guardar("SEGURIDAD", email, mensaje, null);
     }
 
     public List<Notificacion> obtenerTodas() {

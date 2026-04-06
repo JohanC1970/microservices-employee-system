@@ -47,7 +47,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 return unauthorized(exchange);
             }
 
-            String rol = (String) claims.get("rol");
+            String rol = (String) claims.get("role");
             HttpMethod method = exchange.getRequest().getMethod();
 
             // RBAC: USER solo puede hacer GET
