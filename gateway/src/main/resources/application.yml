@@ -9,16 +9,20 @@ spring:
     name: gateway
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
       routes:
         # Auth service — público, sin filtro JWT
         - id: auth-service
-          uri: http://auth-service:8082
+          uri: lb://auth-service
           predicates:
             - Path=/auth/**
 
         # Empleados
         - id: empleados-service
-          uri: http://empleados-service:8080
+          uri: lb://empleados-service
           predicates:
             - Path=/empleados/**
           filters:
@@ -26,7 +30,7 @@ spring:
 
         # Departamentos
         - id: departamentos-service
-          uri: http://departamentos-service:8081
+          uri: lb://departamentos-service
           predicates:
             - Path=/departamentos/**
           filters:
@@ -34,7 +38,7 @@ spring:
 
         # Perfiles
         - id: perfiles-service
-          uri: http://perfiles-service:8083
+          uri: lb://perfiles-service
           predicates:
             - Path=/perfiles/**
           filters:
@@ -42,8 +46,15 @@ spring:
 
         # Notificaciones
         - id: notificaciones-service
-          uri: http://notificaciones-service:8084
+          uri: lb://notificaciones-service
           predicates:
             - Path=/notificaciones/**
           filters:
             - name: JwtAuthFilter
+
+eureka:
+  client:
+    service-url:
+      default-zone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: true

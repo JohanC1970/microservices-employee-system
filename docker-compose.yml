@@ -3,6 +3,20 @@ version: '3.8'
 services:
 
   # ──────────────────────────────────────────────
+  # EUREKA SERVER (nuevo)
+  # ──────────────────────────────────────────────
+  eureka-server:
+    build:
+      context: ./eureka
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - red-microservicios
+    restart: always
+
+  # ──────────────────────────────────────────────
   # MESSAGE BROKER
   # ──────────────────────────────────────────────
   message-broker:
@@ -44,11 +58,14 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
       - JWT_RECOVERY_EXPIRATION_MS=${JWT_RECOVERY_EXPIRATION_MS}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
       database-auth:
         condition: service_healthy
       message-broker:
         condition: service_healthy
+      eureka-server:
+        condition: service_started
     networks:
       - red-microservicios
     restart: always
@@ -65,7 +82,9 @@ services:
       - "8085:8085"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
+      - eureka-server
       - auth-service
       - empleados-service
       - departamentos-service
@@ -89,9 +108,12 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://database-departamentos:5432/departamentos_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
       database-departamentos:
         condition: service_healthy
+      eureka-server:
+        condition: service_started
     networks:
       - red-microservicios
     restart: always
@@ -115,6 +137,7 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
       database-empleados:
         condition: service_healthy
@@ -122,6 +145,8 @@ services:
         condition: service_started
       message-broker:
         condition: service_healthy
+      eureka-server:
+        condition: service_started
     networks:
       - red-microservicios
     restart: always
@@ -144,11 +169,14 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
       database-notificaciones:
         condition: service_healthy
       message-broker:
         condition: service_healthy
+      eureka-server:
+        condition: service_started
     networks:
       - red-microservicios
     restart: always
@@ -171,11 +199,14 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULT-ZONE=http://eureka-server:8761/eureka/
     depends_on:
       database-perfiles:
         condition: service_healthy
       message-broker:
         condition: service_healthy
+      eureka-server:
+        condition: service_started
     networks:
       - red-microservicios
     restart: always

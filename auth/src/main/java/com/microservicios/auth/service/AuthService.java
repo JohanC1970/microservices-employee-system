@@ -5,6 +5,8 @@ import com.microservicios.auth.dto.RecoverPasswordRequest;
 import com.microservicios.auth.dto.ResetPasswordRequest;
 import com.microservicios.auth.model.Usuario;
 import com.microservicios.auth.repository.UsuarioRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,8 @@ public class AuthService {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackLogin")
+    @Retry(name = "authRetry")
     public Map<String, String> login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
@@ -51,6 +55,8 @@ public class AuthService {
         return Map.of("token", token, "rol", usuario.getRol().name());
     }
 
+    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackRecoverPassword")
+    @Retry(name = "authRetry")
     public void recoverPassword(RecoverPasswordRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
@@ -58,7 +64,6 @@ public class AuthService {
         String tokenRecuperacion = jwtService.generarTokenRecuperacion(usuario.getEmail());
         log.info("[AUTH] Token de recuperación generado para: {}", usuario.getEmail());
 
-        // Publicar evento usuario.recuperacion para que notificaciones envíe el email
         rabbitTemplate.convertAndSend(
                 "auth.exchange",
                 "usuario.recuperacion",
@@ -69,6 +74,8 @@ public class AuthService {
         );
     }
 
+    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackResetPassword")
+    @Retry(name = "authRetry")
     public void resetPassword(ResetPasswordRequest request) {
         if (!jwtService.esValido(request.getToken())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token inválido o expirado");
@@ -89,7 +96,8 @@ public class AuthService {
         log.info("[AUTH] Contraseña actualizada para: {}", email);
     }
 
-    /** Llamado al consumir empleado.creado */
+    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackCrearUsuario")
+    @Retry(name = "authRetry")
     public void crearUsuarioDesdeEmpleado(String empleadoId, String email, String nombre) {
         if (usuarioRepository.findByEmail(email).isPresent()) {
             log.warn("[AUTH] Usuario ya existe para email: {}", email);
@@ -98,7 +106,7 @@ public class AuthService {
 
         Usuario usuario = new Usuario();
         usuario.setEmail(email);
-        usuario.setPassword(""); // sin contraseña hasta que establezca una
+        usuario.setPassword("");
         usuario.setRol(Usuario.Rol.USER);
         usuario.setActivo(true);
         usuario.setEmpleadoId(empleadoId);
@@ -107,7 +115,6 @@ public class AuthService {
         String tokenEstablecimiento = jwtService.generarTokenRecuperacion(email);
         log.info("[AUTH] Usuario creado para empleado: {} | email: {}", empleadoId, email);
 
-        // Publicar evento usuario.creado para que notificaciones envíe instrucciones
         rabbitTemplate.convertAndSend(
                 "auth.exchange",
                 "usuario.creado",
@@ -119,12 +126,36 @@ public class AuthService {
         );
     }
 
-    /** Llamado al consumir empleado.eliminado */
+    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackDesactivarUsuario")
+    @Retry(name = "authRetry")
     public void desactivarUsuario(String empleadoId) {
         usuarioRepository.findByEmpleadoId(empleadoId).ifPresent(usuario -> {
             usuario.setActivo(false);
             usuarioRepository.save(usuario);
             log.info("[AUTH] Usuario desactivado para empleadoId: {}", empleadoId);
         });
+    }
+
+    private Map<String, String> fallbackLogin(LoginRequest request, Throwable t) {
+        log.warn("CircuitBreaker activado en login, causa: {}", t.getMessage());
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Servicio de autenticación no disponible");
+    }
+
+    private void fallbackRecoverPassword(RecoverPasswordRequest request, Throwable t) {
+        log.warn("CircuitBreaker activado en recoverPassword, causa: {}", t.getMessage());
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Servicio de autenticación no disponible");
+    }
+
+    private void fallbackResetPassword(ResetPasswordRequest request, Throwable t) {
+        log.warn("CircuitBreaker activado en resetPassword, causa: {}", t.getMessage());
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Servicio de autenticación no disponible");
+    }
+
+    private void fallbackCrearUsuario(String empleadoId, String email, String nombre, Throwable t) {
+        log.warn("CircuitBreaker activado en crearUsuarioDesdeEmpleado, causa: {}", t.getMessage());
+    }
+
+    private void fallbackDesactivarUsuario(String empleadoId, Throwable t) {
+        log.warn("CircuitBreaker activado en desactivarUsuario, causa: {}", t.getMessage());
     }
 }
