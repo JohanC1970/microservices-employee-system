@@ -2,16 +2,12 @@ package com.microservicios.servidor_empleados;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @SpringBootApplication
-@EnableEurekaClient
-@EnableAspectJAutoProxy
+@EnableDiscoveryClient
 public class ServidorEmpleadosApplication {
-
-	public static void main(String[] args) {
-		SpringApplication.run(ServidorEmpleadosApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(ServidorEmpleadosApplication.class, args);
+    }
 }

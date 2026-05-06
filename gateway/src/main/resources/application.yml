@@ -11,18 +11,17 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
+          enabled: false
       routes:
         # Auth service — público, sin filtro JWT
         - id: auth-service
-          uri: lb://auth-service
+          uri: http://auth-service:8082
           predicates:
             - Path=/auth/**
 
         # Empleados
         - id: empleados-service
-          uri: lb://empleados-service
+          uri: http://empleados-service:8080
           predicates:
             - Path=/empleados/**
           filters:
@@ -30,7 +29,7 @@ spring:
 
         # Departamentos
         - id: departamentos-service
-          uri: lb://departamentos-service
+          uri: http://departamentos-service:8081
           predicates:
             - Path=/departamentos/**
           filters:
@@ -38,7 +37,7 @@ spring:
 
         # Perfiles
         - id: perfiles-service
-          uri: lb://perfiles-service
+          uri: http://perfiles-service:8083
           predicates:
             - Path=/perfiles/**
           filters:
@@ -46,7 +45,7 @@ spring:
 
         # Notificaciones
         - id: notificaciones-service
-          uri: lb://notificaciones-service
+          uri: http://notificaciones-service:8084
           predicates:
             - Path=/notificaciones/**
           filters:
@@ -54,7 +53,4 @@ spring:
 
 eureka:
   client:
-    service-url:
-      default-zone: http://eureka-server:8761/eureka/
-  instance:
-    prefer-ip-address: true
+    enabled: false
