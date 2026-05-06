@@ -39,7 +39,7 @@ public class EmpleadoController {
         @Operation(summary = "Obtener un empleado por ID", description = "Devuelve la información de un empleado específico")
         @ApiResponses(value = {
                         @ApiResponse(responseCode = "200", description = "Empleado encontrado", content = @Content(schema = @Schema(implementation = Empleado.class))),
-                        @ApiResponse(responseCode = "400", description = "Empleado no encontrado"),
+                        @ApiResponse(responseCode = "404", description = "Empleado no encontrado"),
                         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
         })
         @GetMapping("/{id}")
@@ -58,7 +58,7 @@ public class EmpleadoController {
         @Operation(summary = "Eliminar un empleado", description = "Elimina el empleado de la base de datos y publica el evento empleado.eliminado")
         @ApiResponses(value = {
                         @ApiResponse(responseCode = "204", description = "Empleado eliminado exitosamente"),
-                        @ApiResponse(responseCode = "400", description = "Empleado no encontrado"),
+                        @ApiResponse(responseCode = "404", description = "Empleado no encontrado"),
                         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
         })
         @DeleteMapping("/{id}")

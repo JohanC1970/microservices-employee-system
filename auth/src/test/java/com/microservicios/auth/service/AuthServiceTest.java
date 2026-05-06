@@ -94,7 +94,7 @@ class AuthServiceTest {
     @Test
     void login_password_incorrecto() {
         when(usuarioRepository.findByEmail("test@empresa.com")).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
             authService.login(loginRequest);

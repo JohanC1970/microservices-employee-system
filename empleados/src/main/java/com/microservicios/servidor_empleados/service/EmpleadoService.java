@@ -43,7 +43,7 @@ public class EmpleadoService {
 
     public Empleado obtener(String id) {
         return empleadoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Empleado no encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("El empleado con id " + id + " no existe"));
     }
 
     public List<Empleado> obtenerTodos() {

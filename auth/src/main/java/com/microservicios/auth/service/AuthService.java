@@ -106,7 +106,7 @@ public class AuthService {
 
         Usuario usuario = new Usuario();
         usuario.setEmail(email);
-        usuario.setPassword("");
+        usuario.setPassword(passwordEncoder.encode("Temporal123"));
         usuario.setRol(Usuario.Rol.USER);
         usuario.setActivo(true);
         usuario.setEmpleadoId(empleadoId);

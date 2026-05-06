@@ -6,6 +6,7 @@ import io.cucumber.java.en.And;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.Assert;
+import support.PollingUtils;
 import support.TestContext;
 
 import java.util.HashMap;
@@ -59,24 +60,27 @@ public class AuthStepDefs {
             .post(TestContext.getBaseUrl() + "/empleados");
 
         if (createResponse.getStatusCode() == 201) {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            boolean loginExitoso = PollingUtils.esperarLoginExitoso(
+                uniqueEmail,
+                "Temporal123",
+                10,
+                2000
+            );
 
-            Response loginResponse = given()
-                .contentType("application/json")
-                .body("{\"email\": \"" + uniqueEmail + "\", \"password\": \"Temporal123\"}")
-                .when()
-                .post(TestContext.getBaseUrl() + "/auth/login");
+            if (loginExitoso) {
+                Response loginResponse = given()
+                    .contentType("application/json")
+                    .body("{\"email\": \"" + uniqueEmail + "\", \"password\": \"Temporal123\"}")
+                    .when()
+                    .post(TestContext.getBaseUrl() + "/auth/login");
 
-            if (loginResponse.getStatusCode() == 200) {
-                String userToken = loginResponse.jsonPath().get("token");
-                TestContext.setToken(userToken);
-                TestContext.setUltimoEmpleadoEmail(uniqueEmail);
-                System.out.println("Usuario USER autenticado");
-                return;
+                if (loginResponse.getStatusCode() == 200) {
+                    String userToken = loginResponse.jsonPath().get("token");
+                    TestContext.setToken(userToken);
+                    TestContext.setUltimoEmpleadoEmail(uniqueEmail);
+                    System.out.println("Usuario USER autenticado");
+                    return;
+                }
             }
         }
 
