@@ -89,13 +89,16 @@ public class AuthStepDefs {
 
     @Given("que estoy autenticado como administrador")
     public void autenticadoComoAdmin2() {
-        if (TestContext.getToken() == null || TestContext.getToken().isEmpty()) {
-            autenticadoComoAdmin();
-        }
+        autenticadoComoAdmin();
     }
 
     @And("que existe un empleado de prueba")
     public void existeEmpleadoDePrueba() {
+        String savedToken = TestContext.getToken();
+        
+        autenticadoComoAdmin();
+        String adminToken = TestContext.getToken();
+
         String uniqueEmail = "empleado.test." + System.currentTimeMillis() + "@test.com";
 
         Map<String, Object> empleado = new HashMap<>();
@@ -105,7 +108,7 @@ public class AuthStepDefs {
 
         Response response = given()
             .contentType("application/json")
-            .header("Authorization", "Bearer " + TestContext.getToken())
+            .header("Authorization", "Bearer " + adminToken)
             .body(empleado)
             .when()
             .post(TestContext.getBaseUrl() + "/empleados");
@@ -114,6 +117,7 @@ public class AuthStepDefs {
 
         String id = response.jsonPath().get("id");
         TestContext.setUltimoEmpleadoId(id);
+        TestContext.setToken(savedToken);
         System.out.println("Empleado de prueba creado con ID: " + id);
     }
 

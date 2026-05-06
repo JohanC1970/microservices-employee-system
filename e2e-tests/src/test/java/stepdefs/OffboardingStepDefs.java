@@ -109,6 +109,9 @@ public class OffboardingStepDefs {
     public void solicitarRecuperacion() {
         String email = TestContext.getUltimoEmpleadoEmail();
 
+        System.out.println("Esperando a que el usuario sea desactivado...");
+        PollingUtils.esperarLoginFallido(email, "Temporal123", POLLING_MAX_ATTEMPTS, POLLING_INTERVAL_MS);
+
         Map<String, Object> request = new HashMap<>();
         request.put("email", email);
 
@@ -136,6 +139,7 @@ public class OffboardingStepDefs {
     @Then("cada eliminación debe ser exitosa")
     public void verificarEliminaciones() {
         Response response = TestContext.getLastResponse();
+        Assert.assertNotNull("La respuesta no debe ser null", response);
         Assert.assertTrue("Eliminación debe ser exitosa (204 o 200)",
             response.getStatusCode() == 204 || response.getStatusCode() == 200);
     }

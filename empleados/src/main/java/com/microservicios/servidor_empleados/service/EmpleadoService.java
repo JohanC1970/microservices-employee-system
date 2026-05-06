@@ -11,6 +11,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class EmpleadoService {
@@ -31,6 +32,18 @@ public class EmpleadoService {
     }
 
     public Empleado registrar(Empleado empleado) {
+        if (empleado.getId() == null || empleado.getId().isBlank()) {
+            empleado.setId(UUID.randomUUID().toString());
+        }
+        if (empleado.getNombre() == null || empleado.getNombre().isBlank()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        if (empleado.getEmail() == null || empleado.getEmail().isBlank()) {
+            throw new IllegalArgumentException("El email es obligatorio");
+        }
+        if (empleado.getDepartamentoId() == null || empleado.getDepartamentoId().isBlank()) {
+            throw new IllegalArgumentException("El departamento es obligatorio");
+        }
         if (empleadoRepository.existsById(empleado.getId())) {
             throw new IllegalArgumentException("El empleado ya existe");
         }
@@ -62,15 +75,17 @@ public class EmpleadoService {
     @Retry(name = "departamentoRetry")
     @CircuitBreaker(name = "departamentoCB", fallbackMethod = "fallbackDepartamento")
     private void validarDepartamento(String departamentoId) {
-        String url = departamentosUrl + "/departamentos/" + departamentoId;
-        restTemplate.getForEntity(url, Object.class);
+        try {
+            String url = departamentosUrl + "/departamentos/" + departamentoId;
+            restTemplate.getForEntity(url, Object.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalArgumentException("El departamento con id " + departamentoId + " no es válido");
+        } catch (HttpClientErrorException e) {
+            throw new IllegalArgumentException("El departamento con id " + departamentoId + " no está disponible");
+        }
     }
 
     private void fallbackDepartamento(String departamentoId, Exception ex) {
-        if (ex instanceof HttpClientErrorException.NotFound) {
-            throw new IllegalArgumentException(
-                    "El departamento con id " + departamentoId + " no existe");
-        }
-        throw new RuntimeException("Servicio de departamentos no disponible");
+        throw new IllegalArgumentException("El departamento con id " + departamentoId + " no está disponible");
     }
 }

@@ -23,7 +23,7 @@ spring:
         - id: empleados-service
           uri: http://empleados-service:8080
           predicates:
-            - Path=/empleados/**
+            - Path=/empleados,/empleados/**
           filters:
             - name: JwtAuthFilter
 
@@ -31,7 +31,7 @@ spring:
         - id: departamentos-service
           uri: http://departamentos-service:8081
           predicates:
-            - Path=/departamentos/**
+            - Path=/departamentos,/departamentos/**
           filters:
             - name: JwtAuthFilter
 
@@ -39,7 +39,7 @@ spring:
         - id: perfiles-service
           uri: http://perfiles-service:8083
           predicates:
-            - Path=/perfiles/**
+            - Path=/perfiles,/perfiles/**
           filters:
             - name: JwtAuthFilter
 
@@ -47,7 +47,7 @@ spring:
         - id: notificaciones-service
           uri: http://notificaciones-service:8084
           predicates:
-            - Path=/notificaciones/**
+            - Path=/notificaciones,/notificaciones/**
           filters:
             - name: JwtAuthFilter
 

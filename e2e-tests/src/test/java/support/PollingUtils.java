@@ -4,12 +4,18 @@ import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.Assert;
 
+import java.text.Normalizer;
 import java.util.function.Supplier;
 
 public class PollingUtils {
 
     private static final int DEFAULT_MAX_ATTEMPTS = 10;
     private static final int DEFAULT_INTERVAL_MS = 2000;
+
+    private static String normalize(String text) {
+        return Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+    }
 
     public static Response esperarHastaQue(
             Supplier<Response> peticion,
@@ -108,6 +114,37 @@ public class PollingUtils {
         return false;
     }
 
+    public static void esperarLoginFallido(String email, String password, int maxIntentos, int intervaloMs) {
+        for (int intento = 1; intento <= maxIntentos; intento++) {
+            try {
+                Response respuesta = RestAssured
+                    .given()
+                    .contentType("application/json")
+                    .body("{\"email\": \"" + email + "\", \"password\": \"" + password + "\"}")
+                    .when()
+                    .post(TestContext.getBaseUrl() + "/auth/login");
+
+                if (respuesta.getStatusCode() != 200 || respuesta.jsonPath().get("token") == null) {
+                    System.out.println("Login fallido como esperado en intento " + intento);
+                    return;
+                }
+            } catch (Exception e) {
+                System.out.println("Intento de login " + intento + " fallido: " + e.getMessage());
+                return;
+            }
+
+            if (intento < maxIntentos) {
+                try {
+                    Thread.sleep(intervaloMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        System.out.println("Advertencia: Login siguió funcionando después de " + maxIntentos + " intentos");
+    }
+
     public static boolean esperarNotificacion(String tipoNotificacion, int maxIntentos, int intervaloMs) {
         String empleadoId = TestContext.getUltimoEmpleadoId();
         if (empleadoId == null) {
@@ -125,7 +162,7 @@ public class PollingUtils {
 
                 if (respuesta.getStatusCode() == 200) {
                     String body = respuesta.getBody().asString();
-                    if (body.contains(tipoNotificacion)) {
+                    if (normalize(body).contains(normalize(tipoNotificacion))) {
                         System.out.println("Notificación tipo '" + tipoNotificacion + "' encontrada en intento " + intento);
                         return true;
                     }

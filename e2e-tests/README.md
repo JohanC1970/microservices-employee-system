@@ -60,7 +60,7 @@ e2e-tests/
         │   │   ├── OnboardingStepDefs.java          # Onboarding (polling)
         │   │   ├── OffboardingStepDefs.java         # Offboarding
         │   │   └── CucumberRunner.java              # Runner de pruebas
-        │   └── support/                             # Utilidades共享
+        │   └── support/                             # Utilidades compartidas
         │       ├── TestContext.java                 # Contexto compartido entre pasos
         │       ├── PollingUtils.java                # Funciones de polling
         │       └── Hooks.java                       # Before/After hooks

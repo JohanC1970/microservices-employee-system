@@ -55,11 +55,13 @@ public class AuthService {
         return Map.of("token", token, "rol", usuario.getRol().name());
     }
 
-    @CircuitBreaker(name = "authCB", fallbackMethod = "fallbackRecoverPassword")
-    @Retry(name = "authRetry")
     public void recoverPassword(RecoverPasswordRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
+        if (!usuario.isActivo()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario inactivo");
+        }
 
         String tokenRecuperacion = jwtService.generarTokenRecuperacion(usuario.getEmail());
         log.info("[AUTH] Token de recuperación generado para: {}", usuario.getEmail());

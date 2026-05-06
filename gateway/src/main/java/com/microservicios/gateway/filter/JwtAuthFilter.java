@@ -68,12 +68,16 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
 
     private Mono<Void> unauthorized(ServerWebExchange exchange) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-        return exchange.getResponse().setComplete();
+        exchange.getResponse().getHeaders().add("Content-Type", "application/json");
+        byte[] bytes = "{\"error\":\"No autorizado\",\"message\":\"Token de acceso requerido\"}".getBytes(StandardCharsets.UTF_8);
+        return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
     }
 
     private Mono<Void> forbidden(ServerWebExchange exchange) {
         exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-        return exchange.getResponse().setComplete();
+        exchange.getResponse().getHeaders().add("Content-Type", "application/json");
+        byte[] bytes = "{\"error\":\"Prohibido\",\"message\":\"No tiene permisos para realizar esta acción\"}".getBytes(StandardCharsets.UTF_8);
+        return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
     }
 
     public static class Config {}

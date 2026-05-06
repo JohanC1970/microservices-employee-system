@@ -226,6 +226,7 @@ public class EmpleadoStepDefs {
                 .when()
                 .delete(TestContext.getBaseUrl() + "/empleados/" + id);
 
+            TestContext.setLastResponse(deleteResponse);
             Assert.assertTrue("Eliminar debe ser 204 o 200", deleteResponse.getStatusCode() == 204 || deleteResponse.getStatusCode() == 200);
         }
     }
