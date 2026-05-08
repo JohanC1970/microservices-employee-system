@@ -78,6 +78,37 @@ pipeline {
         }
     }
 
+    stage('E2E Tests') {
+        steps {
+            sh 'docker compose up -d --build'
+            sh '''
+                echo "Esperando a que los servicios estén listos..."
+                ATTEMPTS=0
+                MAX_ATTEMPTS=40
+                until curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; do
+                    ATTEMPTS=$((ATTEMPTS + 1))
+                    if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+                        echo "Sistema no disponible después de $MAX_ATTEMPTS intentos"
+                        exit 1
+                    fi
+                    echo "Intento $ATTEMPTS/$MAX_ATTEMPTS - esperando 10s..."
+                    sleep 10
+                done
+                echo "Sistema listo"
+            '''
+            dir('e2e-tests') {
+                sh 'mvn test -q'
+                echo 'Pruebas E2E completadas'
+            }
+        }
+        post {
+            always {
+                sh 'docker compose down -v || true'
+                echo '🧹 Sistema apagado después de E2E'
+            }
+        }
+    }
+
     post {
         success {
             echo "Pipeline de empleados-service completado — Build #${env.BUILD_NUMBER}"
