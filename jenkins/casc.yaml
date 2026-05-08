@@ -28,7 +28,7 @@ jobs:
                 remote {
                   url('https://github.com/JohanC1970/microservices-employee-system.git')
                 }
-                branches('*/main')
+                branches('*/feature/reto6')
               }
             }
             scriptPath('empleados/Jenkinsfile')
@@ -45,7 +45,7 @@ jobs:
                 remote {
                   url('https://github.com/JohanC1970/microservices-employee-system.git')
                 }
-                branches('*/main')
+                branches('*/feature/reto6')
               }
             }
             scriptPath('notificaciones/Jenkinsfile')
