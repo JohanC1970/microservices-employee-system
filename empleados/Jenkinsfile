@@ -80,10 +80,18 @@ pipeline {
         stage('E2E Tests') {
             steps {
                 sh '''
-                    # Copiar el archivo .env.example como .env si no existe
                     if [ ! -f .env ]; then
                         cp .env.example .env
                     fi
+                '''
+                sh '''
+                    # Detener y eliminar contenedores conflictivos del sistema principal
+                    docker stop message-broker sonarqube sonar-db jenkins \
+                        empleados-service departamentos-service auth-service \
+                        perfiles-service notificaciones-service gateway 2>/dev/null || true
+                    docker rm message-broker sonarqube sonar-db jenkins \
+                        empleados-service departamentos-service auth-service \
+                        perfiles-service notificaciones-service gateway 2>/dev/null || true
                 '''
                 sh 'docker-compose down -v --remove-orphans || true'
                 sh 'docker-compose up -d --build'
@@ -110,12 +118,14 @@ pipeline {
             post {
                 always {
                     sh 'docker-compose down -v --remove-orphans || true'
+                    sh '''
+                        # Restaurar el sistema principal
+                        docker-compose up -d --build || true
+                    '''
                     echo 'Sistema apagado después de E2E'
                 }
             }
         }
-
-    }
 
     post {
         success {
