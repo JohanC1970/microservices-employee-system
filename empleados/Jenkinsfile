@@ -79,6 +79,13 @@ pipeline {
 
         stage('E2E Tests') {
             steps {
+                sh '''
+                    # Copiar el archivo .env.example como .env si no existe
+                    if [ ! -f .env ]; then
+                        cp .env.example .env
+                    fi
+                '''
+                sh 'docker-compose down -v --remove-orphans || true'
                 sh 'docker-compose up -d --build'
                 sh '''
                     echo "Esperando a que los servicios estén listos..."
@@ -102,7 +109,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'docker-compose down -v || true'
+                    sh 'docker-compose down -v --remove-orphans || true'
                     echo 'Sistema apagado después de E2E'
                 }
             }
