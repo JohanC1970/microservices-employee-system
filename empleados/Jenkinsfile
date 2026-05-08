@@ -76,7 +76,6 @@ pipeline {
                 }
             }
         }
-
         stage('E2E Tests') {
             steps {
                 sh '''
@@ -126,6 +125,7 @@ pipeline {
                 }
             }
         }
+    }
 
     post {
         success {
