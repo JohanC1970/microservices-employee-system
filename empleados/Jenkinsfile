@@ -79,7 +79,7 @@ pipeline {
 
         stage('E2E Tests') {
             steps {
-                sh 'docker compose up -d --build'
+                sh 'docker-compose up -d --build'
                 sh '''
                     echo "Esperando a que los servicios estén listos..."
                     ATTEMPTS=0
@@ -102,7 +102,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'docker compose down -v || true'
+                    sh 'docker-compose down -v || true'
                     echo 'Sistema apagado después de E2E'
                 }
             }
