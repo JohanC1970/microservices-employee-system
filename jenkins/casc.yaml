@@ -1,0 +1,54 @@
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "1970"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: false
+    installations:
+      - name: "SonarQube"
+        serverUrl: "http://sonarqube:9000"
+        credentialsId: "sonar-token"
+
+jobs:
+  - script: |
+      pipelineJob('empleados-service-ci') {
+        description('Pipeline CI para empleados-service')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/JohanC1970/microservices-employee-system.git')
+                }
+                branches('*/main')
+              }
+            }
+            scriptPath('empleados/Jenkinsfile')
+          }
+        }
+      }
+  - script: |
+      pipelineJob('notificaciones-service-ci') {
+        description('Pipeline CI para notificaciones-service')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/JohanC1970/microservices-employee-system.git')
+                }
+                branches('*/main')
+              }
+            }
+            scriptPath('notificaciones/Jenkinsfile')
+          }
+        }
+      }

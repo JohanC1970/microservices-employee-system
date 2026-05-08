@@ -1,0 +1,128 @@
+pipeline {
+    agent {
+        docker {
+            image 'maven:3.9-eclipse-temurin-21'
+            args '-v $HOME/.m2:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
+    environment {
+        SERVICE_NAME = 'empleados-service'
+        IMAGE_TAG    = "${env.BUILD_NUMBER}"
+        SONAR_TOKEN  = credentials('sonar-token')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo "✅ Código obtenido para: ${SERVICE_NAME}"
+                sh 'ls -la'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('empleados') {
+                    sh 'mvn clean compile -DskipTests -q'
+                    echo 'Compilación exitosa'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('empleados') {
+                    sh 'mvn verify -q'
+                    echo 'Tests ejecutados y cobertura generada'
+                }
+            }
+            post {
+                always {
+                    dir('empleados') {
+                        junit allowEmptyResults: true,
+                              testResults: 'target/surefire-reports/*.xml'
+                    }
+                }
+            }
+        }
+
+        stage('SonarQube') {
+            steps {
+                dir('empleados') {
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                            mvn sonar:sonar \
+                                -Dsonar.projectKey=empleados-service \
+                                -Dsonar.projectName='Empleados Service' \
+                                -Dsonar.token=${SONAR_TOKEN} \
+                                -q
+                        """
+                    }
+                }
+                echo 'Análisis enviado a SonarQube'
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+                echo 'Quality Gate aprobado'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('empleados') {
+                    sh "docker build -t ${SERVICE_NAME}:${IMAGE_TAG} -t ${SERVICE_NAME}:latest ."
+                    echo "Imagen construida: ${SERVICE_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('E2E Tests') {
+            steps {
+                sh 'docker-compose up -d --build'
+                sh '''
+                    echo "Esperando a que los servicios estén listos..."
+                    ATTEMPTS=0
+                    MAX_ATTEMPTS=30
+                    until curl -sf http://localhost:8085/auth/health > /dev/null 2>&1 || [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
+                        ATTEMPTS=$((ATTEMPTS + 1))
+                        echo "Intento $ATTEMPTS/$MAX_ATTEMPTS - esperando 10s..."
+                        sleep 10
+                    done
+                    if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+                        echo "Sistema no disponible después de ${MAX_ATTEMPTS} intentos"
+                        exit 1
+                    fi
+                    echo "Sistema listo después de $ATTEMPTS intentos"
+                '''
+                dir('e2e-tests') {
+                    sh 'mvn test -q'
+                    echo 'Pruebas E2E completadas'
+                }
+            }
+            post {
+                always {
+                    sh 'docker-compose down -v || true'
+                    echo 'Sistema apagado después de E2E'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline de ${SERVICE_NAME} completado exitosamente — Build #${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo "Pipeline de ${SERVICE_NAME} FALLIDO en Build #${env.BUILD_NUMBER} — revisar logs"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
