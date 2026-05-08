@@ -17,9 +17,13 @@ RUN jenkins-plugin-cli --plugins \
 USER root
 
 RUN apt-get update && \
-    apt-get install -y docker.io curl && \
+    apt-get install -y docker.io curl maven && \
     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -f docker && usermod -aG docker jenkins
 
-USER jenkins
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
