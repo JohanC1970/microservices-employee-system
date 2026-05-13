@@ -1,0 +1,9 @@
+# Force LF line endings for shell scripts (Linux/Docker compatibility)
+*.sh text eol=lf
+
+# Force LF for Dockerfiles and other config files used in Linux containers
+Dockerfile text eol=lf
+Jenkinsfile text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.properties text eol=lf
