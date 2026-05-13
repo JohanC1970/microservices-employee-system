@@ -62,9 +62,9 @@ if [ -n "$QG_ID" ] && [ "$QG_ID" != "" ]; then
     # Agregar condición de cobertura >= 70%
     curl -s -u "${SONAR_USER}:${SONAR_PASS}" \
         -X POST "${SONAR_URL}/api/qualitygates/create_condition" \
-        -d "gateName=CI-Pipeline-Gate&metric=new_coverage&op=LT&error=70" > /dev/null
+        -d "gateName=CI-Pipeline-Gate&metric=coverage&op=LT&error=70" > /dev/null
 
-    echo "   Condición agregada: new_coverage >= 70%"
+    echo "   Condición agregada: coverage >= 70%"
 
     # Establecer como Quality Gate por defecto
     curl -s -u "${SONAR_USER}:${SONAR_PASS}" \
