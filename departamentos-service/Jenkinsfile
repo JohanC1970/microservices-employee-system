@@ -1,9 +1,3 @@
-// =====================================================
-// Pipeline CI — departamentos-service (Java 17 / Spring Boot 3)
-// =====================================================
-// Etapas: Checkout → Build → Test → SonarQube → Quality Gate → Package → E2E
-// Agente Docker efímero: maven:3.9-eclipse-temurin-17 (mantiene Jenkins limpio)
-// =====================================================
 
 pipeline {
     agent any
@@ -28,7 +22,7 @@ pipeline {
         // ─── Stage 1: Checkout ───
         stage('Checkout') {
             steps {
-                echo "📥 Descargando código fuente..."
+                echo "Descargando código fuente..."
                 checkout scm
             }
         }
@@ -44,7 +38,7 @@ pipeline {
             }
             steps {
                 dir("${SERVICE_NAME}") {
-                    echo "🔨 Compilando proyecto con Maven..."
+                    echo "Compilando proyecto con Maven..."
                     sh 'mvn clean compile -B -q'
                 }
             }
@@ -61,13 +55,13 @@ pipeline {
             }
             steps {
                 dir("${SERVICE_NAME}") {
-                    echo "🧪 Ejecutando pruebas unitarias con cobertura JaCoCo..."
+                    echo "Ejecutando pruebas unitarias con cobertura JaCoCo..."
                     sh 'mvn test jacoco:report -B'
                 }
             }
             post {
                 always {
-                    echo "📊 Archivando reportes de cobertura JaCoCo..."
+                    echo "Archivando reportes de cobertura JaCoCo..."
                 }
             }
         }
@@ -86,7 +80,7 @@ pipeline {
             }
             steps {
                 dir("${SERVICE_NAME}") {
-                    echo "🔍 Ejecutando análisis de SonarQube..."
+                    echo "Ejecutando análisis de SonarQube..."
                     sh """
                         mvn sonar:sonar \
                             -Dsonar.host.url=${SONAR_HOST_URL} \
@@ -106,7 +100,7 @@ pipeline {
         // ─── Stage 5: Quality Gate ───
         stage('Quality Gate') {
             steps {
-                echo "🚦 Esperando resultado del Quality Gate de SonarQube..."
+                echo "Esperando resultado del Quality Gate de SonarQube..."
                 script {
                     // Esperar a que SonarQube procese el análisis
                     sleep(time: 15, unit: 'SECONDS')
@@ -124,9 +118,9 @@ pipeline {
                     echo "📋 Resultado Quality Gate: ${qgResult}"
 
                     if (qgResult != 'OK') {
-                        error "❌ Quality Gate FALLIDO: La cobertura no cumple el umbral mínimo del 70%. Estado: ${qgResult}"
+                        error "Quality Gate FALLIDO: La cobertura no cumple el umbral mínimo del 70%. Estado: ${qgResult}"
                     } else {
-                        echo "✅ Quality Gate APROBADO"
+                        echo "Quality Gate APROBADO"
                     }
                 }
             }
@@ -135,7 +129,7 @@ pipeline {
         // ─── Stage 6: Package — Docker Build ───
         stage('Package') {
             steps {
-                echo "🐋 Construyendo imagen Docker (multi-stage build)..."
+                echo "Construyendo imagen Docker (multi-stage build)..."
                 script {
                     sh """
                         docker build -t ${SERVICE_NAME}:${IMAGE_TAG} ./${SERVICE_NAME}
@@ -144,13 +138,13 @@ pipeline {
                         docker tag ${SERVICE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
                     """
 
-                    echo "📤 Publicando imagen en registry local..."
+                    echo "Publicando imagen en registry local..."
                     sh """
                         docker push ${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${IMAGE_NAME}:latest
                     """
 
-                    echo "✅ Imagen publicada: ${IMAGE_NAME}:${IMAGE_TAG}"
+                    echo "Imagen publicada: ${IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
@@ -158,7 +152,7 @@ pipeline {
         // ─── Stage 7: E2E Tests — Pruebas BDD ───
         stage('E2E Tests') {
             steps {
-                echo "🧪 Levantando sistema completo para pruebas E2E..."
+                echo "Levantando sistema completo para pruebas E2E..."
                 script {
                     try {
                         def composeEnv = "COMPOSE_PROJECT_NAME=ci_${env.BUILD_NUMBER} NETWORK_NAME=ci_${env.BUILD_NUMBER}_net GATEWAY_PORT=0 AUTH_SERVICE_PORT=0 RABBITMQ_PORT=0 RABBITMQ_WEB_PORT=0"
@@ -172,7 +166,7 @@ pipeline {
                         """
 
                         // Esperar a que las bases de datos y RabbitMQ estén listos
-                        echo "⏳ Esperando a que la infraestructura esté lista..."
+                        echo "Esperando a que la infraestructura esté lista..."
                         sh 'sleep 30'
 
                         // Levantar los servicios de negocio
@@ -188,19 +182,19 @@ pipeline {
                         sh 'sleep 60'
 
                         // Ejecutar pruebas BDD
-                        echo "🥒 Ejecutando pruebas BDD (Cucumber)..."
+                        echo "Ejecutando pruebas BDD (Cucumber)..."
                         sh "${composeEnv} docker-compose -f docker-compose.yml run --rm e2e-tests"
 
-                        echo "✅ Pruebas E2E completadas exitosamente"
+                        echo "Pruebas E2E completadas exitosamente"
                     } catch (Exception e) {
-                        echo "❌ Falló la etapa E2E: ${e.getMessage()}"
+                        echo "Falló la etapa E2E: ${e.getMessage()}"
                         throw e
                     }
                 }
             }
             post {
                 always {
-                    echo "🧹 Limpiando entorno E2E..."
+                    echo "Limpiando entorno E2E..."
                     sh "COMPOSE_PROJECT_NAME=ci_${env.BUILD_NUMBER} docker-compose -f docker-compose.yml down --remove-orphans || true"
                 }
             }
@@ -210,20 +204,20 @@ pipeline {
     post {
         success {
             echo """
-            ╔══════════════════════════════════════════════════╗
-            ║  ✅ Pipeline EXITOSO — ${SERVICE_NAME}          ║
-            ║  Build: #${env.BUILD_NUMBER}                    ║
-            ║  Imagen: ${IMAGE_NAME}:${IMAGE_TAG}             ║
-            ╚══════════════════════════════════════════════════╝
+
+              Pipeline EXITOSO — ${SERVICE_NAME}
+              Build: #${env.BUILD_NUMBER}
+              Imagen: ${IMAGE_NAME}:${IMAGE_TAG}
+
             """
         }
         failure {
             echo """
-            ╔══════════════════════════════════════════════════╗
-            ║  ❌ Pipeline FALLIDO — ${SERVICE_NAME}          ║
-            ║  Build: #${env.BUILD_NUMBER}                    ║
-            ║  Revisar logs para detalles del fallo           ║
-            ╚══════════════════════════════════════════════════╝
+
+              Pipeline FALLIDO — ${SERVICE_NAME}
+              Build: #${env.BUILD_NUMBER}
+              Revisar logs para detalles del fallo
+
             """
         }
         always {

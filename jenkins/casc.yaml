@@ -1,20 +1,6 @@
-# =====================================================
-# Jenkins Configuration as Code (JCasC)
-# =====================================================
-# Este archivo configura Jenkins automáticamente al iniciar:
-#   - Seguridad: usuario admin por defecto
-#   - SonarQube: conexión al servidor de análisis
-#   - Jobs: pipelines para cada microservicio
-# =====================================================
 
 jenkins:
-  systemMessage: |
-    ╔══════════════════════════════════════════════════════════════╗
-    ║  Jenkins CI — Sistema de Microservicios                     ║
-    ║  Configurado automáticamente con JCasC                      ║
-    ║  SonarQube: http://sonarqube:9000                           ║
-    ║  Docker Registry: http://docker-registry:5000               ║
-    ╚══════════════════════════════════════════════════════════════╝
+  systemMessage:
 
   securityRealm:
     local:

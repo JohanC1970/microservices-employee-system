@@ -1,340 +1,181 @@
 /**
  * Pruebas unitarias para el servicio de notificaciones.
- * Utiliza Jest y supertest para pruebas de integración.
+ * Testea los endpoints HTTP reales de src/index.js con dependencias mockeadas.
  */
 
+// ─── Mocks DEBEN declararse ANTES de cualquier require ───────────────────────
+
+jest.mock('amqplib', () => ({
+  connect: jest.fn().mockRejectedValue(new Error('RabbitMQ no disponible en tests'))
+}));
+
+jest.mock('winston', () => ({
+  createLogger: jest.fn().mockReturnValue({
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn()
+  }),
+  format: {
+    combine: jest.fn().mockReturnValue({}),
+    timestamp: jest.fn().mockReturnValue({}),
+    errors: jest.fn().mockReturnValue({}),
+    json: jest.fn().mockReturnValue({}),
+    colorize: jest.fn().mockReturnValue({}),
+    printf: jest.fn().mockReturnValue({})
+  },
+  transports: { Console: jest.fn() }
+}));
+
+jest.mock('swagger-jsdoc', () => jest.fn().mockReturnValue({}));
+jest.mock('swagger-ui-express', () => ({
+  serve: [],
+  setup: jest.fn().mockReturnValue((req, res, next) => next())
+}));
+
+// Mock de pg — query configurable por test
+jest.mock('pg', () => {
+  const mockFn = jest.fn().mockResolvedValue({ rows: [] });
+  const MockPool = jest.fn().mockReturnValue({ query: mockFn });
+  MockPool.__query = mockFn;
+  return { Pool: MockPool };
+});
+
+// ─── Imports ─────────────────────────────────────────────────────────────────
+
 const request = require('supertest');
-const express = require('express');
+const { Pool } = require('pg');
+const mockQuery = Pool.__query;
+const app = require('../src/index');
 
-// Mock de la aplicación (simplificada para tests)
-const createApp = () => {
-  const app = express();
-  app.use(express.json());
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
-  // Base de datos en memoria (mock)
-  let notificaciones = [];
-
-  // Endpoint para crear notificación
-  app.post('/notificaciones', (req, res) => {
-    const { tipo, destinatario, mensaje } = req.body;
-
-    if (!tipo || !destinatario || !mensaje) {
-      return res.status(400).json({
-        error: 'Campos requeridos faltantes',
-        detail: 'Los campos tipo, destinatario y mensaje son obligatorios.',
-      });
-    }
-
-    const tiposValidos = ['BIENVENIDA', 'ACTUALIZACION', 'ALERTA'];
-    if (!tiposValidos.includes(tipo.toUpperCase())) {
-      return res.status(400).json({
-        error: 'Tipo de notificación inválido',
-        detail: `El tipo debe ser uno de: ${tiposValidos.join(', ')}`,
-      });
-    }
-
-    const nuevaNotificacion = {
-      id: `test-${Date.now()}`,
-      tipo: tipo.toUpperCase(),
-      destinatario,
-      mensaje,
-      fechaCreacion: new Date().toISOString(),
-      estado: 'ENVIADO',
-    };
-
-    notificaciones.push(nuevaNotificacion);
-    return res.status(201).json(nuevaNotificacion);
-  });
-
-  // Endpoint para listar notificaciones
-  app.get('/notificaciones', (req, res) => {
-    res.json(notificaciones);
-  });
-
-  // Endpoint para obtener notificación por ID
-  app.get('/notificaciones/:id', (req, res) => {
-    const notificacion = notificaciones.find(n => n.id === req.params.id);
-    
-    if (!notificacion) {
-      return res.status(404).json({
-        error: 'Notificación no encontrada',
-        detail: `No existe notificación con ID ${req.params.id}`,
-      });
-    }
-    
-    res.json(notificacion);
-  });
-
-  // Endpoint de health check
-  app.get('/health', (req, res) => {
-    const memoryUsage = process.memoryUsage();
-    const memoryUsedMB = memoryUsage.heapUsed / 1024 / 1024;
-    const memoryTotalMB = memoryUsage.heapTotal / 1024 / 1024;
-    const memoryPercent = (memoryUsedMB / memoryTotalMB) * 100;
-
-    const health = {
-      status: memoryPercent > 80 ? 'degraded' : 'healthy',
-      service: 'notificaciones-service',
-      uptime: process.uptime(),
-      memory: {
-        used_mb: memoryUsedMB.toFixed(2),
-        total_mb: memoryTotalMB.toFixed(2),
-        percent: memoryPercent.toFixed(2),
-      },
-    };
-
-    const statusCode = health.status === 'healthy' ? 200 : 503;
-    res.status(statusCode).json(health);
-  });
-
-  // Helper para limpiar notificaciones (útil para tests)
-  app.delete('/test/clear', (req, res) => {
-    notificaciones = [];
-    res.status(204).send();
-  });
-
-  return app;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('Servicio de Notificaciones - API Tests', () => {
-  let app;
+describe('Notificaciones Service — API Tests', () => {
 
   beforeEach(() => {
-    app = createApp();
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [] });
   });
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Tests de health check
-  // ───────────────────────────────────────────────────────────────────────────
+  // ─── Health ────────────────────────────────────────────────────────────────
 
   describe('GET /health', () => {
-    it('debe retornar el estado de salud del servicio', async () => {
-      const response = await request(app).get('/health');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('status');
-      expect(response.body).toHaveProperty('service', 'notificaciones-service');
-      expect(response.body).toHaveProperty('uptime');
-      expect(response.body).toHaveProperty('memory');
+    it('debe retornar estado healthy', async () => {
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('healthy');
+      expect(res.body.service).toBe('notificaciones-service');
     });
 
-    it('debe incluir métricas de memoria', async () => {
-      const response = await request(app).get('/health');
-
-      expect(response.body.memory).toHaveProperty('used_mb');
-      expect(response.body.memory).toHaveProperty('total_mb');
-      expect(response.body.memory).toHaveProperty('percent');
+    it('debe incluir versión del servicio', async () => {
+      const res = await request(app).get('/health');
+      expect(res.body).toHaveProperty('version');
     });
   });
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Tests de creación de notificaciones
-  // ───────────────────────────────────────────────────────────────────────────
-
-  describe('POST /notificaciones', () => {
-    it('debe crear una notificación de BIENVENIDA exitosamente', async () => {
-      const notificacion = {
-        tipo: 'BIENVENIDA',
-        destinatario: 'juan@empresa.com',
-        mensaje: 'Bienvenido al equipo',
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacion)
-        .expect(201);
-
-      expect(response.body).toHaveProperty('id');
-      expect(response.body.tipo).toBe('BIENVENIDA');
-      expect(response.body.destinatario).toBe('juan@empresa.com');
-      expect(response.body.mensaje).toBe('Bienvenido al equipo');
-      expect(response.body.estado).toBe('ENVIADO');
-      expect(response.body).toHaveProperty('fechaCreacion');
-    });
-
-    it('debe crear una notificación de ACTUALIZACION', async () => {
-      const notificacion = {
-        tipo: 'ACTUALIZACION',
-        destinatario: 'admin@empresa.com',
-        mensaje: 'Se actualizó un empleado',
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacion)
-        .expect(201);
-
-      expect(response.body.tipo).toBe('ACTUALIZACION');
-    });
-
-    it('debe crear una notificación de ALERTA', async () => {
-      const notificacion = {
-        tipo: 'ALERTA',
-        destinatario: 'soporte@empresa.com',
-        mensaje: 'Error crítico detectado',
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacion)
-        .expect(201);
-
-      expect(response.body.tipo).toBe('ALERTA');
-    });
-
-    it('debe retornar 400 si faltan campos requeridos', async () => {
-      const notificacionIncompleta = {
-        tipo: 'BIENVENIDA',
-        // Falta destinatario y mensaje
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacionIncompleta)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('Campos requeridos faltantes');
-    });
-
-    it('debe retornar 400 si el tipo es inválido', async () => {
-      const notificacionInvalida = {
-        tipo: 'TIPO_INVALIDO',
-        destinatario: 'test@empresa.com',
-        mensaje: 'Mensaje de prueba',
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacionInvalida)
-        .expect(400);
-
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('Tipo de notificación inválido');
-    });
-
-    it('debe convertir el tipo a mayúsculas', async () => {
-      const notificacion = {
-        tipo: 'bienvenida',
-        destinatario: 'test@empresa.com',
-        mensaje: 'Test',
-      };
-
-      const response = await request(app)
-        .post('/notificaciones')
-        .send(notificacion)
-        .expect(201);
-
-      expect(response.body.tipo).toBe('BIENVENIDA');
-    });
-  });
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Tests de consulta de notificaciones
-  // ───────────────────────────────────────────────────────────────────────────
+  // ─── GET /notificaciones ───────────────────────────────────────────────────
 
   describe('GET /notificaciones', () => {
-    it('debe retornar una lista vacía inicialmente', async () => {
-      const response = await request(app)
-        .get('/notificaciones')
-        .expect(200);
-
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body).toHaveLength(0);
+    it('debe retornar lista vacía cuando no hay notificaciones', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/notificaciones');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body).toHaveLength(0);
     });
 
-    it('debe retornar todas las notificaciones creadas', async () => {
-      // Crear dos notificaciones
-      await request(app)
-        .post('/notificaciones')
-        .send({
-          tipo: 'BIENVENIDA',
-          destinatario: 'user1@empresa.com',
-          mensaje: 'Mensaje 1',
-        });
+    it('debe retornar lista de notificaciones correctamente mapeadas', async () => {
+      const fecha = new Date().toISOString();
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'uuid-1',
+            tipo: 'BIENVENIDA',
+            destinatario: 'juan@empresa.com',
+            mensaje: 'Bienvenido al equipo',
+            fecha_envio: fecha,
+            empleado_id: 'EMP-001'
+          }
+        ]
+      });
 
-      await request(app)
-        .post('/notificaciones')
-        .send({
-          tipo: 'ALERTA',
-          destinatario: 'user2@empresa.com',
-          mensaje: 'Mensaje 2',
-        });
-
-      const response = await request(app)
-        .get('/notificaciones')
-        .expect(200);
-
-      expect(response.body).toHaveLength(2);
-      expect(response.body[0].tipo).toBe('BIENVENIDA');
-      expect(response.body[1].tipo).toBe('ALERTA');
-    });
-  });
-
-  describe('GET /notificaciones/:id', () => {
-    it('debe retornar una notificación por ID', async () => {
-      // Crear notificación
-      const createResponse = await request(app)
-        .post('/notificaciones')
-        .send({
-          tipo: 'BIENVENIDA',
-          destinatario: 'test@empresa.com',
-          mensaje: 'Test mensaje',
-        });
-
-      const notificacionId = createResponse.body.id;
-
-      // Consultar por ID
-      const response = await request(app)
-        .get(`/notificaciones/${notificacionId}`)
-        .expect(200);
-
-      expect(response.body.id).toBe(notificacionId);
-      expect(response.body.tipo).toBe('BIENVENIDA');
+      const res = await request(app).get('/notificaciones');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].id).toBe('uuid-1');
+      expect(res.body[0].tipo).toBe('BIENVENIDA');
+      expect(res.body[0].destinatario).toBe('juan@empresa.com');
+      expect(res.body[0].mensaje).toBe('Bienvenido al equipo');
+      expect(res.body[0].empleadoId).toBe('EMP-001');
     });
 
-    it('debe retornar 404 si la notificación no existe', async () => {
-      const response = await request(app)
-        .get('/notificaciones/id-inexistente')
-        .expect(404);
+    it('debe retornar múltiples notificaciones', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          { id: 'u1', tipo: 'BIENVENIDA', destinatario: 'a@b.com', mensaje: 'msg1', fecha_envio: new Date(), empleado_id: 'E1' },
+          { id: 'u2', tipo: 'SEGURIDAD', destinatario: 'b@b.com', mensaje: 'msg2', fecha_envio: new Date(), empleado_id: 'E2' },
+        ]
+      });
 
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('no encontrada');
+      const res = await request(app).get('/notificaciones');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(2);
+    });
+
+    it('debe retornar 500 si la base de datos falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('Connection refused'));
+      const res = await request(app).get('/notificaciones');
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Tests de validaciones
-  // ───────────────────────────────────────────────────────────────────────────
+  // ─── GET /notificaciones/:empleadoId ───────────────────────────────────────
 
-  describe('Validaciones', () => {
-    it('debe rechazar peticiones sin Content-Type application/json', async () => {
-      const response = await request(app)
-        .post('/notificaciones')
-        .send('invalid data');
+  describe('GET /notificaciones/:empleadoId', () => {
+    it('debe retornar notificaciones de un empleado específico', async () => {
+      const fecha = new Date().toISOString();
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'uuid-3',
+            tipo: 'ACTUALIZACION',
+            destinatario: 'emp@empresa.com',
+            mensaje: 'Datos actualizados',
+            fecha_envio: fecha,
+            empleado_id: 'EMP-042'
+          }
+        ]
+      });
 
-      expect(response.status).toBeGreaterThanOrEqual(400);
+      const res = await request(app).get('/notificaciones/EMP-042');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].empleadoId).toBe('EMP-042');
+      expect(res.body[0].tipo).toBe('ACTUALIZACION');
     });
 
-    it('debe aceptar todos los tipos válidos', async () => {
-      const tiposValidos = ['BIENVENIDA', 'ACTUALIZACION', 'ALERTA'];
+    it('debe retornar lista vacía si el empleado no tiene notificaciones', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/notificaciones/EMP-NO-EXISTE');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body).toHaveLength(0);
+    });
 
-      for (const tipo of tiposValidos) {
-        const response = await request(app)
-          .post('/notificaciones')
-          .send({
-            tipo,
-            destinatario: 'test@empresa.com',
-            mensaje: `Mensaje de tipo ${tipo}`,
-          });
+    it('debe retornar 500 si la base de datos falla al buscar por empleado', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB timeout'));
+      const res = await request(app).get('/notificaciones/EMP-001');
+      expect(res.status).toBe(500);
+      expect(res.body).toHaveProperty('error');
+    });
 
-        expect(response.status).toBe(201);
-        expect(response.body.tipo).toBe(tipo);
-      }
+    it('debe consultar la BD con el empleadoId correcto', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      await request(app).get('/notificaciones/EMP-XYZ');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE empleado_id'),
+        ['EMP-XYZ']
+      );
     });
   });
 });

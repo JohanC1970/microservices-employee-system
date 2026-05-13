@@ -397,7 +397,7 @@ services:
       retries: 5
 
   # ─────────────────────────────────────
-  # Pruebas E2E BDD (Opcional)
+  # Pruebas E2E BDD
   # ─────────────────────────────────────
   # Para ejecutar las pruebas dentro de Docker sin instalar Java/Maven localmente:
   # docker-compose run --rm e2e-tests
@@ -429,18 +429,8 @@ services:
     # Ejecutar manualmente con: docker-compose run --rm e2e-tests
 
   # ═══════════════════════════════════════════════════════════
-  #  RETO 6 — INTEGRACIÓN CONTINUA (CI) CON JENKINS
+  #  INTEGRACIÓN CONTINUA (CI) CON JENKINS
   # ═══════════════════════════════════════════════════════════
-
-  # ─────────────────────────────────────
-  # Jenkins CI Server
-  # ─────────────────────────────────────
-  # Imagen personalizada con:
-  #   - Plugins pre-instalados (pipeline, Docker, SonarQube, JCasC)
-  #   - Cliente Docker (Docker Socket Mount)
-  #   - Setup Wizard desactivado
-  #   - Configuración como Código (JCasC)
-  # ─────────────────────────────────────
   jenkins:
     build:
       context: ./jenkins

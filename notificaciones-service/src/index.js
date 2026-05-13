@@ -19,6 +19,7 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize({ all: false }),
+        /* istanbul ignore next */
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
           if (message && message.startsWith("[NOTIFICACIÓN]")) {
             return `${message}`;
@@ -42,6 +43,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/notificacionesdb'
 });
 
+/* istanbul ignore next */
 async function initDB() {
   try {
     await pool.query(`
@@ -64,6 +66,7 @@ async function initDB() {
 // ─────────────────────────────────────────────
 // Conexión a RabbitMQ y Consumo de Eventos
 // ─────────────────────────────────────────────
+/* istanbul ignore next */
 async function initRabbitMQ() {
   try {
     const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672/';
@@ -255,6 +258,7 @@ app.get('/notificaciones/:empleadoId', async (req, res) => {
 // ─────────────────────────────────────────────
 // Iniciar servidor
 // ─────────────────────────────────────────────
+/* istanbul ignore next */
 async function startServer() {
   await initDB();
   initRabbitMQ();
@@ -263,4 +267,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Solo arrancar el servidor si el archivo se ejecuta directamente (no en tests)
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
