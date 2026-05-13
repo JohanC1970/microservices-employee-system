@@ -54,9 +54,9 @@ jobs:
             scm {
               git {
                 remote {
-                  url('https://github.com/Nelson-Apache/microservicios.git')
+                  url('https://github.com/JohanC1970/microservices-employee-system.git')
                 }
-                branches('*/felipe')
+                branches('*/reto-6')
               }
             }
             scriptPath('notificaciones-service/Jenkinsfile')
@@ -84,9 +84,9 @@ jobs:
             scm {
               git {
                 remote {
-                  url('https://github.com/Nelson-Apache/microservicios.git')
+                  url('https://github.com/JohanC1970/microservices-employee-system.git')
                 }
-                branches('*/felipe')
+                branches('*/reto-6')
               }
             }
             scriptPath('departamentos-service/Jenkinsfile')
