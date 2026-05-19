@@ -680,6 +680,8 @@ volumes:
   notificaciones-data:
   perfiles-data:
   auth-data:
+  grafana-data:
+  loki-data:
   # Volúmenes CI/CD (Reto 6)
   jenkins_data:
     name: jenkins-data

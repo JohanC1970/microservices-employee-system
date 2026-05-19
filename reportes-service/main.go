@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -270,12 +271,20 @@ func inicializarTrazabilidad() (func(context.Context) error, error) {
 		return nil, err
 	}
 
+	propagators := os.Getenv("OTEL_PROPAGATORS")
+	var textMapPropagator propagation.TextMapPropagator
+	if strings.Contains(propagators, "baggage") {
+		textMapPropagator = propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
+	} else {
+		textMapPropagator = propagation.NewCompositeTextMapPropagator(propagation.TraceContext{})
+	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(resource),
 	)
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.TraceContext{})
+	otel.SetTextMapPropagator(textMapPropagator)
 
 	return tp.Shutdown, nil
 }
