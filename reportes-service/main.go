@@ -11,14 +11,26 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/propagation"
+	sdkresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.uber.org/zap"
 
 	_ "reportes-service/docs"
@@ -26,6 +38,20 @@ import (
 
 // Logger global estructurado en JSON
 var logger *zap.Logger
+
+// ── Métricas Prometheus ──
+var (
+	peticionesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total de peticiones HTTP recibidas",
+	}, []string{"method", "path", "status_code"})
+
+	duracionPeticion = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_request_duration_seconds",
+		Help:    "Duración de peticiones HTTP en segundos",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "path"})
+)
 
 // ─────────────────────────────────────────────
 // Estructuras de datos
@@ -74,6 +100,26 @@ type Empleado struct {
 	Nombre string `json:"nombre"`
 }
 
+type escritorRespuesta struct {
+	http.ResponseWriter
+	codigo int
+}
+
+func (e *escritorRespuesta) WriteHeader(codigo int) {
+	e.codigo = codigo
+	e.ResponseWriter.WriteHeader(codigo)
+}
+
+func middlewareMetricas(ruta string, siguiente http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		inicio := time.Now()
+		ew := &escritorRespuesta{ResponseWriter: w, codigo: http.StatusOK}
+		siguiente.ServeHTTP(ew, r)
+		duracionPeticion.WithLabelValues(r.Method, ruta).Observe(time.Since(inicio).Seconds())
+		peticionesTotal.WithLabelValues(r.Method, ruta, strconv.Itoa(ew.codigo)).Inc()
+	})
+}
+
 // ─────────────────────────────────────────────
 // Configuración de URLs
 // ─────────────────────────────────────────────
@@ -98,6 +144,7 @@ func getDepartamentosURL() string {
 // ─────────────────────────────────────────────
 var httpClient = &http.Client{
 	Timeout: 5 * time.Second,
+	Transport: otelhttp.NewTransport(http.DefaultTransport),
 }
 
 func fetchJSON(url string, target interface{}) error {
@@ -201,6 +248,38 @@ func testConnection(url string) error {
 	return nil
 }
 
+func inicializarTrazabilidad() (func(context.Context) error, error) {
+	endpoint := os.Getenv("OTEL_EXPORTER_ZIPKIN_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "http://zipkin:9411/api/v2/spans"
+	}
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "reportes-service"
+	}
+
+	exporter, err := zipkin.New(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	resource, err := sdkresource.New(context.Background(),
+		sdkresource.WithAttributes(semconv.ServiceName(serviceName)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resource),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	return tp.Shutdown, nil
+}
+
 // resumenHandler genera el resumen estadístico del sistema
 //
 //	@Summary		Obtener resumen del sistema
@@ -279,6 +358,16 @@ func main() {
 	}
 	defer logger.Sync()
 
+	shutdown, err := inicializarTrazabilidad()
+	if err != nil {
+		logger.Fatal("No se pudo inicializar trazabilidad", zap.Error(err))
+	}
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			logger.Error("Error al cerrar trazabilidad", zap.Error(err))
+		}
+	}()
+
 	logger.Info("Inicializando reportes-service", zap.String("service", "reportes-service"))
 
 	port := os.Getenv("PORT")
@@ -289,14 +378,15 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Endpoints de negocio
-	mux.HandleFunc("/", healthHandler)
-	mux.HandleFunc("/health", detailedHealthHandler)
-	mux.HandleFunc("/reportes/resumen", resumenHandler)
+	mux.Handle("/", middlewareMetricas("/", otelhttp.NewHandler(http.HandlerFunc(healthHandler), "health_handler")))
+	mux.Handle("/health", middlewareMetricas("/health", otelhttp.NewHandler(http.HandlerFunc(detailedHealthHandler), "detailed_health_handler")))
+	mux.Handle("/reportes/resumen", middlewareMetricas("/reportes/resumen", otelhttp.NewHandler(http.HandlerFunc(resumenHandler), "resumen_handler")))
+	mux.Handle("/metrics", promhttp.Handler())
 
 	// Swagger UI
-	mux.Handle("/docs/", httpSwagger.Handler(
+	mux.Handle("/docs/", otelhttp.NewHandler(httpSwagger.Handler(
 		httpSwagger.URL("/docs/doc.json"),
-	))
+	), "swagger_handler"))
 
 	logger.Info("reportes-service corriendo",
 		zap.String("url", fmt.Sprintf("http://localhost:%s", port)),

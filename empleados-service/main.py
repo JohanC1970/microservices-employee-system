@@ -6,9 +6,20 @@ from pydantic import ValidationError
 from app.routes import empleados
 from app.database import init_db, engine, EmpleadoModel
 from sqlalchemy import text
+import os
 import sys
 import logging
 from pythonjsonlogger import jsonlogger
+
+# ── Observabilidad — Reto 7 ──
+from prometheus_fastapi_instrumentator import Instrumentator
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.zipkin.json import ZipkinExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuración de logging estructurado en JSON
@@ -38,6 +49,18 @@ logger.setLevel(logging.INFO)
 logging.getLogger("uvicorn.access").handlers = [logHandler]
 logging.getLogger("uvicorn.error").handlers = [logHandler]
 
+
+def _configurar_trazabilidad(nombre_servicio: str) -> None:
+    """Inicializa OpenTelemetry con exportador Zipkin."""
+    endpoint = os.environ.get("OTEL_EXPORTER_ZIPKIN_ENDPOINT", "http://zipkin:9411/api/v2/spans")
+    recurso = Resource.create({"service.name": nombre_servicio})
+    proveedor = TracerProvider(resource=recurso)
+    proveedor.add_span_processor(BatchSpanProcessor(ZipkinExporter(endpoint=endpoint)))
+    trace.set_tracer_provider(proveedor)
+
+
+_configurar_trazabilidad(os.environ.get("OTEL_SERVICE_NAME", "empleados-service"))
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Aplicación principal
 # ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +78,9 @@ app = FastAPI(
     ),
     version="2.0.0",
 )
+
+FastAPIInstrumentor().instrument_app(app)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

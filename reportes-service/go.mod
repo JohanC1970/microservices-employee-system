@@ -4,8 +4,13 @@ go 1.21
 
 require (
 	github.com/gorilla/mux v1.8.1
+	github.com/prometheus/client_golang v1.17.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.3
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
+	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel/exporters/zipkin v1.21.0
+	go.opentelemetry.io/otel/sdk v1.21.0
 	go.uber.org/zap v1.26.0
 )
 

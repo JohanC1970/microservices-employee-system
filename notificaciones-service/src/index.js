@@ -1,8 +1,36 @@
+// Tracing debe ser el primero — instrumenta http y express antes de que se cargue el servidor
+require('./tracing');
+
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const winston = require('winston');
 const amqp = require('amqplib');
 const { Pool } = require('pg');
+const client = require('prom-client');
+
+// ─────────────────────────────────────────────
+// Métricas Prometheus
+// ─────────────────────────────────────────────
+client.collectDefaultMetrics({ prefix: 'notificaciones_' });
+
+const duracionHttp = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duración de peticiones HTTP en segundos',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.05, 0.1, 0.5, 1, 2, 5],
+});
+
+const totalHttp = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Total de peticiones HTTP recibidas',
+  labelNames: ['method', 'route', 'status_code'],
+});
+
+const servicioSaludable = new client.Gauge({
+  name: 'servicio_saludable',
+  help: 'Servicio y dependencias operativas: 1=sí, 0=no',
+  labelNames: ['service'],
+});
 
 // ─────────────────────────────────────────────
 // Configuración de logging estructurado (JSON)
@@ -35,6 +63,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Métricas HTTP
+app.use((req, res, next) => {
+  const inicio = Date.now();
+  res.on('finish', () => {
+    const ruta = req.route ? req.route.path : req.path;
+    const duracion = (Date.now() - inicio) / 1000;
+    duracionHttp.observe({ method: req.method, route: ruta, status_code: res.statusCode }, duracion);
+    totalHttp.inc({ method: req.method, route: ruta, status_code: res.statusCode });
+  });
+  next();
+});
 
 // ─────────────────────────────────────────────
 // Conexión a Base de Datos PostgreSQL
@@ -187,11 +227,17 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *         description: Servicio funcionando
  */
 app.get('/health', (req, res) => {
+  servicioSaludable.set({ service: 'notificaciones-service' }, 1);
   res.json({
     status: 'healthy',
     service: 'notificaciones-service',
     version: '1.0.0'
   });
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.send(await client.register.metrics());
 });
 
 /**

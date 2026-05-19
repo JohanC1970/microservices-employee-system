@@ -12,6 +12,16 @@ import sys
 import logging
 from pythonjsonlogger import jsonlogger
 
+# ── Observabilidad — Reto 7 ──
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Gauge
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.zipkin.json import ZipkinExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuración de logging estructurado en JSON
@@ -35,6 +45,24 @@ logging.getLogger("uvicorn.access").handlers = [manejador_log]
 logging.getLogger("uvicorn.error").handlers = [manejador_log]
 
 logger = logging.getLogger(__name__)
+
+SERVICIO_SALUDABLE = Gauge(
+    'servicio_saludable',
+    'Servicio y dependencias operativas: 1=sí, 0=no',
+    ['service']
+)
+
+
+def _configurar_trazabilidad(nombre_servicio: str) -> None:
+    """Inicializa OpenTelemetry con exportador Zipkin."""
+    endpoint = os.environ.get("OTEL_EXPORTER_ZIPKIN_ENDPOINT", "http://zipkin:9411/api/v2/spans")
+    recurso = Resource.create({"service.name": nombre_servicio})
+    proveedor = TracerProvider(resource=recurso)
+    proveedor.add_span_processor(BatchSpanProcessor(ZipkinExporter(endpoint=endpoint)))
+    trace.set_tracer_provider(proveedor)
+
+
+_configurar_trazabilidad(os.environ.get("OTEL_SERVICE_NAME", "auth-service"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,6 +163,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=ciclo_de_vida,
 )
+
+FastAPIInstrumentor().instrument_app(app)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 app.include_router(router_auth)
 
