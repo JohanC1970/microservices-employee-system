@@ -228,13 +228,13 @@ async def raiz():
 @app.get("/health", tags=["General"], summary="Health check del servicio")
 async def verificar_salud():
     """Verifica el estado del servicio y la conexión a la base de datos."""
-    estado = {"status": "healthy", "servicio": "auth-service", "version": "1.0.0", "checks": {}}
+    estado = {"status": "UP", "service": "auth-service", "version": "1.0.0", "checks": {}}
     try:
         with motor.connect() as conn:
             conn.execute(text("SELECT 1"))
-        estado["checks"]["base_de_datos"] = "ok"
+        estado["checks"]["database"] = "UP"
     except Exception as error:
-        estado["status"] = "unhealthy"
-        estado["checks"]["base_de_datos"] = f"error: {str(error)}"
+        estado["status"] = "DOWN"
+        estado["checks"]["database"] = "DOWN"
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=estado)
     return estado

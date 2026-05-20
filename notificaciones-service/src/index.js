@@ -226,12 +226,28 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *       200:
  *         description: Servicio funcionando
  */
-app.get('/health', (req, res) => {
-  servicioSaludable.set({ service: 'notificaciones-service' }, 1);
-  res.json({
-    status: 'healthy',
+app.get('/health', async (req, res) => {
+  let dbStatus = "UP";
+  let overallStatus = "UP";
+  let statusCode = 200;
+
+  try {
+    await pool.query('SELECT 1');
+  } catch (error) {
+    dbStatus = "DOWN";
+    overallStatus = "DOWN";
+    statusCode = 503;
+  }
+
+  servicioSaludable.set({ service: 'notificaciones-service' }, overallStatus === "UP" ? 1 : 0);
+  
+  res.status(statusCode).json({
+    status: overallStatus,
     service: 'notificaciones-service',
-    version: '1.0.0'
+    version: '1.0.0',
+    checks: {
+      database: dbStatus
+    }
   });
 });
 

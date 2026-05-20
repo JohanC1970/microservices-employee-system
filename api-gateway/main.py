@@ -205,7 +205,12 @@ class _ErrorHTTP(Exception):
 @app.get("/health", tags=["Gateway"], summary="Health check del gateway")
 async def verificar_salud():
     """Verifica que el API Gateway está operativo."""
-    return {"status": "healthy", "servicio": "api-gateway", "version": "1.0.0"}
+    return {
+        "status": "UP",
+        "service": "api-gateway",
+        "version": "1.0.0",
+        "checks": {}
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────

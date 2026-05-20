@@ -235,7 +235,7 @@ async def health_check():
         - 503 si hay problemas con la BD
     """
     health_status = {
-        "status": "healthy",
+        "status": "UP",
         "service": "empleados-service",
         "version": "2.0.0",
         "checks": {}
@@ -245,10 +245,10 @@ async def health_check():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        health_status["checks"]["database"] = "ok"
+        health_status["checks"]["database"] = "UP"
     except Exception as e:
-        health_status["status"] = "unhealthy"
-        health_status["checks"]["database"] = f"error: {str(e)}"
+        health_status["status"] = "DOWN"
+        health_status["checks"]["database"] = "DOWN"
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content=health_status

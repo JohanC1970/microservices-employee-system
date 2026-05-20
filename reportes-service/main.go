@@ -178,7 +178,7 @@ func fetchJSON(url string, target interface{}) error {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(HealthResponse{
-		Status:  "ok",
+		Status:  "UP",
 		Service: "reportes-service",
 		Version: "1.0.0",
 		Docs:    "/docs/index.html",
@@ -203,25 +203,25 @@ func detailedHealthHandler(w http.ResponseWriter, r *http.Request) {
 	// Verificar conectividad con servicio de empleados
 	empleadosURL := getEmpleadosURL() + "/empleados?pagina=1&por_pagina=1"
 	if err := testConnection(empleadosURL); err != nil {
-		checks["empleados_service"] = fmt.Sprintf("error: %v", err)
+		checks["empleados_service"] = "DOWN"
 		allHealthy = false
 	} else {
-		checks["empleados_service"] = "ok"
+		checks["empleados_service"] = "UP"
 	}
 
 	// Verificar conectividad con servicio de departamentos
 	departamentosURL := getDepartamentosURL() + "/departamentos"
 	if err := testConnection(departamentosURL); err != nil {
-		checks["departamentos_service"] = fmt.Sprintf("error: %v", err)
+		checks["departamentos_service"] = "DOWN"
 		allHealthy = false
 	} else {
-		checks["departamentos_service"] = "ok"
+		checks["departamentos_service"] = "UP"
 	}
 
-	status := "healthy"
+	status := "UP"
 	statusCode := http.StatusOK
 	if !allHealthy {
-		status = "degraded"
+		status = "DOWN"
 		statusCode = http.StatusServiceUnavailable
 	}
 
